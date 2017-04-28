@@ -48,7 +48,6 @@ public:
 	{
 		zeromem(dl,DEMAX*sizeof(float));
 	}
-
 };
 template<unsigned int DM> class DelayLineBoolean
 {

@@ -2,7 +2,7 @@
 	==============================================================================
 	This file is part of Obxd synthesizer.
 
-	Copyright © 2013-2014 Filatov Vadim
+	Copyright ï¿½ 2013-2014 Filatov Vadim
 	
 	Contact author via email :
 	justdat_@_e1.ru
@@ -193,7 +193,7 @@ public:
 
 		hsr &= hardSync;
 		//Delaying our hard sync gate signal and frac
-		hsr = syncd.feedReturn(hsr);
+		hsr = syncd.feedReturn(hsr) != 0.0f;
 		hsfrac = syncFracd.feedReturn(hsfrac);
 
 		if(osc1Pul)

@@ -2,7 +2,7 @@
 	==============================================================================
 	This file is part of Obxd synthesizer.
 
-	Copyright © 2013-2014 Filatov Vadim
+	Copyright ï¿½ 2013-2014 Filatov Vadim
 	
 	Contact author via email :
 	justdat_@_e1.ru
@@ -157,7 +157,7 @@ public:
 
 		if(hardSyncReset)
 		{
-			float fracMaster = (delta * hardSyncFrac);
+			//float fracMaster = (delta * hardSyncFrac);
 			float trans =(pw1t?1:0);
 			mixInImpulseCenter(buffer1,bP1,hardSyncFrac,trans);
 			pw1t = false;

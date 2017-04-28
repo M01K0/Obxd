@@ -2,7 +2,7 @@
 	==============================================================================
 	This file is part of Obxd synthesizer.
 
-	Copyright © 2013-2014 Filatov Vadim
+	Copyright ) 2013-2014 Filatov Vadim
 	
 	Contact author via email :
 	justdat_@_e1.ru
@@ -39,7 +39,6 @@ private:
 	float sampleRate;
 	//JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SynthEngine)
 public:
-
 	SynthEngine():
 		cutoffSmoother(),
 		//synth = new Motherboard();
@@ -153,9 +152,9 @@ public:
 	void procPitchWheel(float val)
 	{
 		pitchWheelSmoother.setSteep(val);
-		//for(int i = 0 ; i < synth.MAX_VOICES;i++)
+		//for(int i = 0 ; i < synth->MAX_VOICES;i++)
 		//{
-		//	synth.voices[i].pitchWheel = val;
+		//	synth->voices[i]->pitchWheel = val;
 		//}
 	}
 	inline void procPitchWheelSmoothed(float val)
@@ -466,10 +465,10 @@ public:
 	void processCutoff(float param)
 	{
 		cutoffSmoother.setSteep( linsc(param,0,120));
-	//	for(int i = 0 ; i < synth.MAX_VOICES;i++)
+	//	for(int i = 0 ; i < synth->MAX_VOICES;i++)
 	//	{
-			//synth.voices[i].cutoff = logsc(param,60,19000,30);
-		//	synth.voices[i].cutoff = linsc(param,0,120);
+			//synth->voices[i]->cutoff = logsc(param,60,19000,30);
+		//	synth->voices[i]->cutoff = linsc(param,0,120);
 	//	}
 	}
 	inline void processCutoffSmoothed(float param)

@@ -2,7 +2,7 @@
 	==============================================================================
 	This file is part of Obxd synthesizer.
 
-	Copyright © 2013-2014 Filatov Vadim
+	Copyright ï¿½ 2013-2014 Filatov Vadim
 	
 	Contact author via email :
 	justdat_@_e1.ru
@@ -90,7 +90,6 @@ public:
 
 	float pitchWheel;
 	float pitchWheelAmt;
-
 	bool pitchWheelOsc2Only;
 
 	float lfoa1,lfoa2;
@@ -211,8 +210,6 @@ public:
 
 		//variable sort magic - upsample trick
 		float envVal = lenvd.feedReturn(env.processSample() * (1 - (1-velocityValue)*vamp));
-
-		float x2 = 0;
 
 		float oscps = osc.ProcessSample() * (1 - levelDetuneAmt*levelDetune);
 

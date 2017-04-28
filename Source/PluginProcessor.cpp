@@ -10,6 +10,7 @@ It contains the basic startup code for a Juce application.
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Engine/Params.h"
+
 //only sse2 version on windows
 #ifdef _WINDOWS
 #define __SSE2__
@@ -22,33 +23,55 @@ It contains the basic startup code for a Juce application.
 
 //==============================================================================
 #define S(T) (juce::String(T))
-ObxdAudioProcessor::ObxdAudioProcessor() : bindings(),programs()
+
+//==============================================================================
+ObxdAudioProcessor::ObxdAudioProcessor()
+	: bindings()
+	, programs()
+	, configLock("__" JucePlugin_Name "ConfigLock__")
 {
 	isHostAutomatedChange = true;
 	midiControlledParamSet = false;
 	lastMovedController = 0;
 	lastUsedParameter = 0;
-	//synth = new SynthEngine();
+
 	synth.setSampleRate(44100);
+
+	PropertiesFile::Options options;
+	options.applicationName = JucePlugin_Name;
+	options.storageFormat = PropertiesFile::storeAsXML;
+	options.millisecondsBeforeSaving = 2500;
+	options.processLock = &configLock;
+	config = new PropertiesFile(getDocumentFolder().getChildFile("Settings.xml"), options);
+
+	currentSkin = config->containsKey("skin") ? config->getValue("skin") : "discoDSP Grey";
+	currentBank = "Init";
+
+	scanAndUpdateBanks();
 	initAllParams();
+
+	if (bankFiles.size() > 0)
+	{
+		loadFromFXBFile(bankFiles[0]);
+	}
 }
 
 ObxdAudioProcessor::~ObxdAudioProcessor()
 {
-	//delete synth;
+	config->saveIfNeeded();
+	config = nullptr;
 }
+
 //==============================================================================
 void ObxdAudioProcessor::initAllParams()
 {
-	for(int i = 0 ; i < PARAM_COUNT;i++)
-		setParameter(i,programs.currentProgramPtr->values[i]);
-}
-//==============================================================================
-const String ObxdAudioProcessor::getName() const
-{
-	return JucePlugin_Name;
+	for (int i = 0 ; i < PARAM_COUNT; i++)
+	{
+		setParameter(i, programs.currentProgramPtr->values[i]);
+	}
 }
 
+//==============================================================================
 int ObxdAudioProcessor::getNumParameters()
 {
 	return PARAM_COUNT;
@@ -304,6 +327,7 @@ void ObxdAudioProcessor::setParameter (int index, float newValue)
 	if(isHostAutomatedChange)
 		sendChangeMessage();
 }
+
 const String ObxdAudioProcessor::getParameterName (int index)
 {
 	switch(index)
@@ -475,6 +499,12 @@ const String ObxdAudioProcessor::getParameterText (int index)
 	return String(programs.currentProgramPtr->values[index],2);
 }
 
+//==============================================================================
+const String ObxdAudioProcessor::getName() const
+{
+	return JucePlugin_Name;
+}
+
 const String ObxdAudioProcessor::getInputChannelName (int channelIndex) const
 {
 	return String (channelIndex + 1);
@@ -522,6 +552,8 @@ double ObxdAudioProcessor::getTailLengthSeconds() const
 {
 	return 0.0;
 }
+
+//==============================================================================
 int ObxdAudioProcessor::getNumPrograms()
 {
 	return PROGRAMCOUNT;
@@ -540,7 +572,8 @@ void ObxdAudioProcessor::setCurrentProgram (int index)
 	for(int i = 0 ; i < PARAM_COUNT;i++)
 		setParameter(i,programs.currentProgramPtr->values[i]);
 	isHostAutomatedChange = true;
-	sendSynchronousChangeMessage();
+	sendChangeMessage();
+	updateHostDisplay();
 }
 
 const String ObxdAudioProcessor::getProgramName (int index)
@@ -550,7 +583,7 @@ const String ObxdAudioProcessor::getProgramName (int index)
 
 void ObxdAudioProcessor::changeProgramName (int index, const String& newName)
 {
-	programs.programs[index].name = newName;
+	 programs.programs[index].name = newName;
 }
 
 //==============================================================================
@@ -567,6 +600,7 @@ void ObxdAudioProcessor::releaseResources()
 {
 
 }
+
 inline void ObxdAudioProcessor::processMidiPerSample(MidiBuffer::Iterator* iter,const int samplePos)
 {
 	while (getNextEvent(iter, samplePos))
@@ -632,6 +666,7 @@ inline void ObxdAudioProcessor::processMidiPerSample(MidiBuffer::Iterator* iter,
 
 	}
 }
+
 bool ObxdAudioProcessor::getNextEvent(MidiBuffer::Iterator* iter,const int samplePos)
 {
 	if (hasMidiMessage && midiEventPos <= samplePos)
@@ -642,6 +677,7 @@ bool ObxdAudioProcessor::getNextEvent(MidiBuffer::Iterator* iter,const int sampl
 	} 
 	return false;
 }
+
 void ObxdAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffer& midiMessages)
 {
 	//SSE flags set
@@ -649,19 +685,23 @@ void ObxdAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffer& mi
 	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 #endif
 #ifdef __SSE2__
-	_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	// _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 #endif
+
 	MidiBuffer::Iterator ppp(midiMessages);
 	hasMidiMessage = ppp.getNextEvent(*nextMidi,midiEventPos);
+
 	int samplePos = 0;
 	int numSamples = buffer.getNumSamples();
-	float* channelData1 = buffer.getSampleData(0);
-	float* channelData2 = buffer.getSampleData(1);
+	float* channelData1 = buffer.getWritePointer(0);
+	float* channelData2 = buffer.getWritePointer(1);
+
 	AudioPlayHead::CurrentPositionInfo pos;
     if (getPlayHead() != 0 && getPlayHead()->getCurrentPosition (pos))
     {
 		synth.setPlayHead(pos.bpm,pos.ppqPosition);
     }
+
 	while (samplePos < numSamples)
 	{
 		processMidiPerSample(&ppp,samplePos);
@@ -675,92 +715,282 @@ void ObxdAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffer& mi
 //==============================================================================
 bool ObxdAudioProcessor::hasEditor() const
 {
-	return true; // (change this to false if you choose to not supply an editor)
+	return true;
 }
 
 AudioProcessorEditor* ObxdAudioProcessor::createEditor()
 {
 	return new ObxdAudioProcessorEditor (this);
-	//return NULL;
 }
 
 //==============================================================================
 void ObxdAudioProcessor::getStateInformation (MemoryBlock& destData)
 {
-	//XmlElement* const xmlState = getXmlFromBinary(;
-	// You should use this method to store your parameters in the memory block.
-	// You could do that either as raw data, or use the XML or ValueTree classes
-	// as intermediaries to make it easy to save and load complex data.
 	XmlElement xmlState = XmlElement("Datsounds");
-	xmlState.setAttribute(S("currentProgram"),programs.currentProgram);
-	XmlElement* xprogs=  new XmlElement("programs");
-	for(int i = 0 ; i < PROGRAMCOUNT;i++)
+	xmlState.setAttribute(S("currentProgram"), programs.currentProgram);
+
+	XmlElement* xprogs = new XmlElement("programs");
+	for (int i = 0; i < PROGRAMCOUNT; ++i)
 	{
 		XmlElement* xpr = new XmlElement("program");
-		xpr->setAttribute(S("programName"),programs.programs[i].name);
-		for(int k = 0 ; k < PARAM_COUNT;k++)
+		xpr->setAttribute(S("programName"), programs.programs[i].name);
+
+		for (int k = 0; k < PARAM_COUNT; ++k)
 		{
 			xpr->setAttribute(String(k), programs.programs[i].values[k]);
 		}
+
 		xprogs->addChildElement(xpr);
 	}
+
 	xmlState.addChildElement(xprogs);
-	for(int i = 0 ; i < 255;i++)
+
+	for (int i = 0; i < 255; ++i)
 	{
-		xmlState.setAttribute(String(i),bindings.controllers[i]);
+		xmlState.setAttribute(String(i), bindings.controllers[i]);
 	}
+
 	copyXmlToBinary(xmlState,destData);
 }
 
 void ObxdAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-	// You should use this method to restore your parameters from this memory block,
-	// whose contents will have been created by the getStateInformation() call.
-	XmlElement* const xmlState = getXmlFromBinary(data,sizeInBytes);
-	XmlElement* xprogs = xmlState->getFirstChildElement();
-	if(xprogs->hasTagName(S("programs")))
+	if (XmlElement* const xmlState = getXmlFromBinary(data,sizeInBytes))
 	{
-		int i = 0 ;
-		forEachXmlChildElement (*xprogs, e)
+		XmlElement* xprogs = xmlState->getFirstChildElement();
+		if (xprogs->hasTagName(S("programs")))
 		{
-			programs.programs[i].setDefaultValues();
-			for(int k = 0 ; k < PARAM_COUNT;k++)
+			int i = 0;
+			forEachXmlChildElement(*xprogs, e)
 			{
-				programs.programs[i].values[k] = e->getDoubleAttribute(String(k),programs.programs[i].values[k]);
+				programs.programs[i].setDefaultValues();
+
+				for (int k = 0; k < PARAM_COUNT; ++k)
+				{
+					programs.programs[i].values[k] = e->getDoubleAttribute(String(k), programs.programs[i].values[k]);
+				}
+
+				programs.programs[i].name = e->getStringAttribute(S("programName"), S("Default"));
+
+				++i;
 			}
-			programs.programs[i].name= e->getStringAttribute(S("programName"),S("Default"));
-			i++;
 		}
+
+		for (int i = 0; i < 255; ++i)
+		{
+			bindings.controllers[i] = xmlState->getIntAttribute(String(i), 0);
+		}
+
+		setCurrentProgram(xmlState->getIntAttribute(S("currentProgram"), 0));
+
+		delete xmlState;
 	}
-	for(int i = 0 ; i < 255;i++)
-	{
-		bindings.controllers[i] = xmlState->getIntAttribute(String(i),0);
-	}
-	setCurrentProgram(xmlState->getIntAttribute(S("currentProgram"),0));
-	delete xmlState;
 }
+
 void  ObxdAudioProcessor::setCurrentProgramStateInformation(const void* data,int sizeInBytes)
 {
-	XmlElement* const e = getXmlFromBinary(data,sizeInBytes);
-	programs.currentProgramPtr->setDefaultValues();
-	for(int k = 0 ; k < PARAM_COUNT;k++)
+	if (XmlElement* const e = getXmlFromBinary(data, sizeInBytes))
 	{
-		programs.currentProgramPtr->values[k] = e->getDoubleAttribute(String(k),programs.currentProgramPtr->values[k]);
+		programs.currentProgramPtr->setDefaultValues();
+
+		for (int k = 0; k < PARAM_COUNT; ++k)
+		{
+			programs.currentProgramPtr->values[k] = e->getDoubleAttribute(String(k), programs.currentProgramPtr->values[k]);
+		}
+
+		programs.currentProgramPtr->name =  e->getStringAttribute(S("programName"), S("Default"));
+
+		setCurrentProgram(programs.currentProgram);
+
+		delete e;
 	}
-	programs.currentProgramPtr->name =  e->getStringAttribute(S("programName"),S("Default"));
-	setCurrentProgram(programs.currentProgram);
-	delete e;
 }
+
 void ObxdAudioProcessor::getCurrentProgramStateInformation(MemoryBlock& destData)
 {
 	XmlElement xmlState = XmlElement("Datsounds");
-	for(int k = 0 ; k < PARAM_COUNT;k++)
+
+	for (int k = 0; k < PARAM_COUNT; ++k)
 	{
 		xmlState.setAttribute(String(k), programs.currentProgramPtr->values[k]);
 	}
-	xmlState.setAttribute(S("programName"),programs.currentProgramPtr->name);
-	copyXmlToBinary(xmlState,destData);
+
+	xmlState.setAttribute(S("programName"), programs.currentProgramPtr->name);
+
+	copyXmlToBinary(xmlState, destData);
 }
+
+//==============================================================================
+bool ObxdAudioProcessor::loadFromFXBFile(const File& fxbFile)
+{
+	MemoryBlock mb;
+	if (! fxbFile.loadFileAsData(mb))
+		return false;
+
+	const void* const data = mb.getData();
+	const size_t dataSize = mb.getSize();
+
+	if (dataSize < 28)
+		return false;
+
+	const fxSet* const set = (const fxSet*) data;
+
+	if ((! compareMagic (set->chunkMagic, "CcnK")) || fxbSwap (set->version) > fxbVersionNum)
+		return false;
+
+	if (compareMagic (set->fxMagic, "FxBk"))
+	{
+		// bank of programs
+		if (fxbSwap (set->numPrograms) >= 0)
+		{
+			const int oldProg = getCurrentProgram();
+			const int numParams = fxbSwap (((const fxProgram*) (set->programs))->numParams);
+			const int progLen = (int) sizeof (fxProgram) + (numParams - 1) * (int) sizeof (float);
+
+			for (int i = 0; i < fxbSwap (set->numPrograms); ++i)
+			{
+				if (i != oldProg)
+				{
+					const fxProgram* const prog = (const fxProgram*) (((const char*) (set->programs)) + i * progLen);
+					if (((const char*) prog) - ((const char*) set) >= (ssize_t) dataSize)
+						return false;
+
+					if (fxbSwap (set->numPrograms) > 0)
+						setCurrentProgram (i);
+
+					if (! restoreProgramSettings (prog))
+						return false;
+				}
+			}
+
+			if (fxbSwap (set->numPrograms) > 0)
+				setCurrentProgram (oldProg);
+
+			const fxProgram* const prog = (const fxProgram*) (((const char*) (set->programs)) + oldProg * progLen);
+			if (((const char*) prog) - ((const char*) set) >= (ssize_t) dataSize)
+				return false;
+
+			if (! restoreProgramSettings (prog))
+				return false;
+		}
+	}
+	else if (compareMagic (set->fxMagic, "FxCk"))
+	{
+		// single program
+		const fxProgram* const prog = (const fxProgram*) data;
+
+		if (! compareMagic (prog->chunkMagic, "CcnK"))
+			return false;
+
+		changeProgramName (getCurrentProgram(), prog->prgName);
+
+		for (int i = 0; i < fxbSwap (prog->numParams); ++i)
+			setParameter (i, fxbSwapFloat (prog->params[i]));
+	}
+	else if (compareMagic (set->fxMagic, "FBCh"))
+	{
+		// non-preset chunk
+		const fxChunkSet* const cset = (const fxChunkSet*) data;
+
+		if ((size_t) fxbSwap (cset->chunkSize) + sizeof (fxChunkSet) - 8 > (size_t) dataSize)
+			return false;
+
+		setStateInformation(cset->chunk, fxbSwap (cset->chunkSize));
+	}
+	else if (compareMagic (set->fxMagic, "FPCh"))
+	{
+		// preset chunk
+		const fxProgramSet* const cset = (const fxProgramSet*) data;
+
+		if ((size_t) fxbSwap (cset->chunkSize) + sizeof (fxProgramSet) - 8 > (size_t) dataSize)
+			return false;
+
+		setCurrentProgramStateInformation(cset->chunk, fxbSwap (cset->chunkSize));
+
+		changeProgramName (getCurrentProgram(), cset->name);
+	}
+	else
+	{
+		return false;
+	}
+
+	currentBank = fxbFile.getFileName();
+
+	updateHostDisplay();
+
+	return true;
+}
+
+bool ObxdAudioProcessor::restoreProgramSettings(const fxProgram* const prog)
+{
+	if (compareMagic (prog->chunkMagic, "CcnK")
+		&& compareMagic (prog->fxMagic, "FxCk"))
+	{
+		changeProgramName (getCurrentProgram(), prog->prgName);
+
+		for (int i = 0; i < fxbSwap (prog->numParams); ++i)
+			setParameter (i, fxbSwapFloat (prog->params[i]));
+
+		return true;
+	}
+
+	return false;
+}
+
+//==============================================================================
+void ObxdAudioProcessor::scanAndUpdateBanks()
+{
+	bankFiles.clearQuick();
+
+	DirectoryIterator it(getBanksFolder(), false, "*.fxb", File::findFiles);
+	while (it.next())
+	{
+		bankFiles.add(it.getFile());
+	}
+}
+
+const Array<File>& ObxdAudioProcessor::getBankFiles() const
+{
+	return bankFiles;
+}
+
+File ObxdAudioProcessor::getCurrentBankFile() const
+{
+	return getBanksFolder().getChildFile(currentBank);
+}
+
+//==============================================================================
+File ObxdAudioProcessor::getDocumentFolder() const
+{
+	File folder = File::getSpecialLocation(File::userDocumentsDirectory).getChildFile("discoDSP").getChildFile("OB-Xd");
+	if (folder.isSymbolicLink())
+		folder = folder.getLinkedTarget();
+	return folder;
+}
+
+File ObxdAudioProcessor::getSkinFolder() const
+{
+	return getDocumentFolder().getChildFile("Skins");
+}
+
+File ObxdAudioProcessor::getBanksFolder() const
+{
+	return getDocumentFolder().getChildFile("Banks");
+}
+
+File ObxdAudioProcessor::getCurrentSkinFolder() const
+{
+	return getSkinFolder().getChildFile(currentSkin);
+}
+
+void ObxdAudioProcessor::setCurrentSkinFolder(const String& folderName)
+{
+	currentSkin = folderName;
+
+	config->setValue("skin", folderName);
+	config->setNeedsToBeSaved(true);
+}
+
 //==============================================================================
 // This creates new instances of the plugin..
 AudioProcessor* JUCE_CALLTYPE createPluginFilter()

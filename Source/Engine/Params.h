@@ -2,7 +2,7 @@
 	==============================================================================
 	This file is part of Obxd synthesizer.
 
-	Copyright © 2013-2014 Filatov Vadim
+	Copyright ï¿½ 2013-2014 Filatov Vadim
 	
 	Contact author via email :
 	justdat_@_e1.ru
@@ -47,7 +47,7 @@ public:
 		values[TUNE] = 0.5f;
 		values[OSC2_DET]=0.4;
 		values[LSUS]=1.0f;
-		values[CUTOFF]=0.5f;
+		values[CUTOFF]=1.0f;
 		values[VOLUME]=0.5f;
 		values[OSC1MIX]=1;
 		values[OSC2MIX]=1;
