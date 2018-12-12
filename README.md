@@ -1,3 +1,12 @@
+This is a fork of [github.com/reales/OB-Xd](https://github.com/reales/OB-Xd) which originated from [github.com/2DaT/Obxd](https://github.com/2DaT/Obxd).
+
+The fork is currently motivated by "getting a good EWI USB experience on MacOS". The synth has got some real potential in this area (Michael Brecker played Oberheim synths on his EWI), but there are some annoying issues. I have added some hard coded patches to make this work with my setup. I may fix this in a more general way later ... maybe.
+
+Original `README` below:
+
+---
+
+
 # discoDSP OB-Xd
 Download binaries at https://www.discodsp.com/obxd/
 
