@@ -571,6 +571,26 @@ inline void ObxdAudioProcessor::processMidiPerSample(MidiBuffer::Iterator* iter,
             // [0..16383] center = 8192;
             synth.procPitchWheel((midiMsg->getPitchWheelValue() - 8192) / 8192.0);
         }
+        
+        auto ccNum = midiMsg -> getControllerNumber();
+        auto ccVal = midiMsg -> getControllerValue();
+        
+        // TODO(bep) added for EWI. Should get the "learn" to save this state on MacOS.
+        // There are 2 fixes that would make this a really great wind controller synth:
+        // 1. Persist "learn" per plugin
+        // 2. Allow a lower min value in "learn".
+        if (midiMsg->isController()) {
+            if (ccNum == 2) {
+                if (midiMsg->getChannel() == 1) {
+                    setParameter(CUTOFF, ccVal / 127.0);
+                } else {
+                    setParameter(CUTOFF, (ccVal + 30) / 127.0);
+                }
+            } else if (ccNum == 5) {
+                setParameter(PORTAMENTO, ccVal / 127.0);
+            }
+        }
+        
         if (midiMsg->isController() && midiMsg->getControllerNumber() == 1)
             synth.procModWheel(midiMsg->getControllerValue() / 127.0);
         if (midiMsg->isController()) {
