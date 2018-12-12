@@ -491,7 +491,7 @@ const String ObxdAudioProcessor::getParameterName (int index)
 	case FREL:
 		return S("FilterRelease");
 	}
-	return String::empty;
+	return String();
 }
 
 const String ObxdAudioProcessor::getParameterText (int index)
