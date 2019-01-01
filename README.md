@@ -1,6 +1,11 @@
 This is a fork of [github.com/reales/OB-Xd](https://github.com/reales/OB-Xd) which originated from [github.com/2DaT/Obxd](https://github.com/2DaT/Obxd).
 
-The fork is currently motivated by "getting a good EWI USB experience on MacOS". The synth has got some real potential in this area (Michael Brecker played Oberheim synths on his EWI), but there are some annoying issues. I have added some hard coded patches to make this work with my setup. I may fix this in a more general way later ... maybe.
+The fork is currently motivated by "getting a good EWI USB experience on MacOS". The synth has got some real potential in this area (Michael Brecker played Oberheim synths on his EWI), but there are some annoying issues, mostly that it does not save learnt midi mappings as part of the plugin state or similar. I have added some hard coded patches to make this work with my setup. I may fix this in a more general way later ... maybe.
+
+I have read that this could possibly work better on Windows (VST version where you should be able to save banks (fxb) with these settings)), but this patched version has some hard-coded settings that works for me:
+
+* Cutoff is mapped to CC2 (breath)
+* Portamento is mapped to CC5 (I have that on "thumb down" on my EWI)
 
 Original `README` below:
 
