@@ -7,6 +7,8 @@ I have read that this could possibly work better on Windows (VST version where y
 * Cutoff is mapped to CC2 (breath)
 * Portamento is mapped to CC5 (I have that on "thumb down" on my EWI)
 
+A demo: https://www.youtube.com/watch?v=SOC71Dqwcmo
+
 Original `README` below:
 
 ---
